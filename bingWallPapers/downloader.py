@@ -10,7 +10,12 @@ from PIL import Image
 
 def getPageImgUrl(url):
     headers = {
-        'use_agent' : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:66.0) Gecko/20100101 Firefox/66.0',
+        # 'Accept' :'*/*',
+        # 'Cache-Control': 'no-cache',
+        'User-Agent' : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36',
+        # 'Accept-Encoding': 'gzip, deflate',
+        # 'Host': 'bing.ioliu.cn',
+        # 'Postman-Token': 'f61ba919-fe7d-4dab-baf1-e267b59eda7e'
     }
     res = requests.get(url,headers=headers).content
     pattern = re.compile(r'data-progressive="(.*?)"')
@@ -72,7 +77,7 @@ if __name__ == "__main__":
             return None
 
     # page_cnt = int(input("输入要"))
-    page_cnt = 5 
+    page_cnt = 10 
     img_urls_raw = getAllUrl(page_cnt)
     img_urls = list(filter(lambda x: parse_img_name(x) not in os.listdir(output_dir), img_urls_raw))
 
