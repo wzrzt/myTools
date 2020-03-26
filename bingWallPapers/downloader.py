@@ -88,6 +88,9 @@ if __name__ == "__main__":
 
     for img_no, img_url in enumerate(img_urls):
         print("Processing pic_no: %s of %s. %s" % (img_no + 1, img_cnt, datetime.datetime.now()))
+        img_url = img_url.replace('640x480', '1920x1080')
+        if img_url.endswith('?imageslim'):
+            img_url.replace('?imageslim', '')
         img_filename = parse_img_name(img_url)
         DownloadImg(img_url, output_dir)
         im = Image.open(os.path.join(output_dir, img_filename)) 
