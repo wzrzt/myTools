@@ -193,6 +193,10 @@ def extrac_img_source(page_html_list:list):
     return url_df
     
 
+@retry(retry_on_exception=_retry_if_exception,
+       wait_random_min=1000,
+       wait_random_max=5000,
+       stop_max_attempt_number=5)
 def DownloadImg(url, dir):
     headers = {
         'use_agent' : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:66.0) Gecko/20100101 Firefox/66.0',
@@ -205,6 +209,10 @@ def DownloadImg(url, dir):
         f.write(r.content)
 
 
+@retry(retry_on_exception=_retry_if_exception,
+       wait_random_min=1000,
+       wait_random_max=5000,
+       stop_max_attempt_number=5)
 def DownloadOneImg(url, path):
     headers = {
         'use_agent' : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:66.0) Gecko/20100101 Firefox/66.0',
@@ -213,6 +221,7 @@ def DownloadOneImg(url, path):
 
     with open(path, 'wb') as f:
         f.write(r.content)
+
 
 def DownloadImgs(url_df, dir, type='4k', with_title=False, with_date=False):
 
