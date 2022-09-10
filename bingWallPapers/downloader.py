@@ -6,6 +6,7 @@ import datetime
 import time
 import numpy as np
 from PIL import Image
+from lxml import etree
 
 
 def getPageImgUrl(url):
@@ -18,8 +19,11 @@ def getPageImgUrl(url):
         # 'Postman-Token': 'f61ba919-fe7d-4dab-baf1-e267b59eda7e'
     }
     res = requests.get(url,headers=headers).content
-    pattern = re.compile(r'data-progressive="(.*?)"')
-    urls = re.findall(pattern, str(res))
+    html1 = etree.HTML(res)
+    xpath_urls = "/html/body/div[3]/div/div/div[2]/a[2]/@href"
+    # pattern = re.compile(r'data-progressive="(.*?)"')
+    # urls = re.findall(pattern, str(res))
+    urls = html1.xpath(xpath_urls)
     return urls
 
 
@@ -39,7 +43,8 @@ def DownloadImg(url, dir):
         'use_agent' : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:66.0) Gecko/20100101 Firefox/66.0',
     }
     r = requests.get(url, headers=headers)
-    pattern = re.compile(r'/bing/(.*?)_1920')
+    # pattern = re.compile(r'/bing/(.*?)_1920')
+    pattern = re.compile(r"id=(.*?)_1920")
     filename_raw = re.findall(pattern, url)
     if filename_raw:
 
@@ -68,7 +73,8 @@ if __name__ == "__main__":
     #         DownloadImg(img_url, output_dir)
 
     def parse_img_name(url):
-        pattern = re.compile(r'/bing/(.*?)_1920')
+        # pattern = re.compile(r'/bing/(.*?)_1920')
+        pattern = re.compile(r"id=(.*?)_1920")
         filename_raw = re.findall(pattern, url)
         if filename_raw:
             filename = str(filename_raw[0]) + '.jpg'
