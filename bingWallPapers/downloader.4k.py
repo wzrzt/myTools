@@ -1,5 +1,4 @@
 
-from requests.api import head
 from tqdm import tqdm
 import requests
 from lxml import etree
@@ -8,8 +7,8 @@ import re
 import pandas as pd
 from PIL import Image
 import os
+import configparser
 from pathvalidate import sanitize_filename
-
 
 """
 基于 http://bingimg.cn 抓取bing壁纸，有1080，4k两版本可选  
@@ -119,6 +118,13 @@ def get_page_source(page_no):
 def get_all_pages(page_cnt):
     page_sources = []
     for page_no in tqdm(range(1, 1+page_cnt)):
+        page_sources.append(get_page_source(page_no))
+
+    return page_sources
+
+def get_spec_pages(page_nos: list):
+    page_sources = []
+    for page_no in tqdm(page_nos):
         page_sources.append(get_page_source(page_no))
 
     return page_sources
@@ -244,20 +250,57 @@ def DownloadImgs(url_df, dir, type='4k', with_title=False, with_date=False):
         url_df['filename'] = 'date_' + url_df['date'].str.replace('-', '') + '.' + url_df['filename']
     
     url_df['filename'] = url_df['filename'].apply(lambda x: sanitize_filename(x))
-    for i, row in tqdm(url_df.iterrows(), total=url_df.shape):
+    for i, row in tqdm(url_df.iterrows(), total=url_df.shape[0]):
         DownloadOneImg(row[tag], os.path.join(dir, row['filename']))
 
+
+def get_downloaded(download_dir):
+    """
+    获取已下载的壁纸
+    """
+
+    filenames = os.listdir(download_dir)
+
+    wp_files = list(filter(lambda x: x.startswith('date_'), filenames))
+    
+    dates = [x.split('.')[0].replace('date_', '') for x in wp_files]
+    dates = ['-'.join( [x[:4], x[4:6], x[6:]] ) for x in dates]
+    return dates
 
 
 
 if __name__=="__main__":
 
-    page_htmls = get_all_pages(5)
+    try:
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        output_path = config.get('wallpaper', 'outpath')
+    except Exception as e:
+        print(e)
+        output_path = 'wallPapers'
+
+
+    # page_htmls = get_all_pages(1)
+    page_htmls = get_spec_pages([100,
+                                101,
+                                128,
+                                129,
+                                130,
+                                131,
+                                132])
     url_df = extrac_img_source(page_htmls)
 
+    url_df = url_df.loc[url_df['url_4k'].str.startswith('http')]
     # for i, row in tqdm(url_df.iterrows(), total = url_df.shape[0]):
     #     DownloadImg(row['url_1080'], 'wallPapers')
 
-    DownloadImgs(url_df, 'wallPapers', with_date=True, with_title=True)
+    dates_downloaded = get_downloaded(output_path)
+    if dates_downloaded:
+        url_df = url_df.loc[~url_df['date'].isin(dates_downloaded)]
+
+    if url_df.empty:
+        print("All wallpaper exists or no url crawled, can try to change date")
+    else:
+        DownloadImgs(url_df, output_path, with_date=True, with_title=True)
 
     print(1)
