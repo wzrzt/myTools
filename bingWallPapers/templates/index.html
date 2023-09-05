@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Gallery</title>
+    <style>
+        
+        /* 页面布局样式 */
+        body {
+            margin: 0;
+            padding-bottom: 50px; /* 底栏高度 */
+        }
+        
+        .thumbnail-container {
+            margin-bottom: 20px; /* 图片与底栏之间的间距 */
+        }
+        
+        /* 底栏样式 */
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 50px; /* 底栏高度 */
+            background-color: #f5f5f5;
+            text-align: center;
+            line-height: 50px;
+        }
+
+        .pagination {
+            margin-top: 20px;
+            font-size: 24px;
+        }
+        .thumbnail-row {
+            display: inline-block;
+            margin-right: 10px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image Gallery</h1>
+
+    {% for row in thumbnails %}
+    <div class="thumbnail-container">
+        {% for image_file, thumbnail_file in row %}
+        <div class="thumbnail-row">
+            <a href="/images/{{ image_file }}" download>
+                <img src="/thumbnails/{{ thumbnail_file }}" alt="{{ image_file }}" width="640" height="360">
+            </a>
+        </div>
+        {% endfor %}
+        <p>{{ image_file }}</p>
+    </div>
+    {% endfor %}
+
+
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="/?page={{ page - 1 }}">Previous</a>
+        {% endif %}
+        
+        <span>Page {{ page }}</span>
+        
+        {% if thumbnails|length >= IMAGES_PER_PAGE %}
+            <a href="/?page={{ page + 1 }}">Next</a>
+        {% endif %}
+        
+        <span>Total {{ page_cnt }} pages:</span>
+        
+        {% set start_page = page - 5 if page > 5 else 1 %}
+        {% set end_page = page + 4 if page + 4 <= page_cnt else page_cnt %}
+        
+        {% for p in range(start_page, end_page + 1) %}
+            {% if p == page %}
+                <span class="active">{{ p }}</span>
+            {% else %}
+                <a href="/?page={{ p }}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < page_cnt %}
+        <a href="/?page={{ page - 1 }}">Next</a>
+        {% endif %}
+
+    </div>
+
+    <div class="footer">
+        这里是底栏内容
+    </div>
+
+</body>
+</html>

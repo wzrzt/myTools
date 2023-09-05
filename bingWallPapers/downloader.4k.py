@@ -15,6 +15,12 @@ from pathvalidate import sanitize_filename
 图片位于 http://bingimg.cn/list1 中，切换页面改 url后的数字即可，最新的在最前面  
 本脚本将抓取前x页壁纸信息，包括标题，副标题，日期，文件名等，拼成pd.DataFrame，再保存至文件夹中  
 
+
+2023-08-21 更新
+1. 由于原网址访问情深，无法抓取到下载链接，现在改成新网址，xpath进行调整
+待改进
+1. 之前下载不到的图获取不到url，无法执行下载，现在是获取得到，但是下载出来的不是图片，需要加多一步检查，如果图片失效，不下载，或者下载后提取错误，文件不要保存，因为文件是直接作为壁纸了，会出问题
+2. 节省硬盘空间，作者提供了随机下载图片的接口，可以考虑每次获取若干张图片作为壁纸，每天或者每周更新即可
 """
 
 
@@ -108,11 +114,12 @@ base_url = """http://bingimg.cn/list1"""
 
 
 def get_page_source(page_no):
-    base_url = f"""http://bingimg.cn/list{page_no}"""
+    # base_url = f"""http://bingimg.cn/list{page_no}"""
+    base_url = f"""http://bing.ioliu.cn/?p={page_no}"""
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36'}
     res = requests.get(base_url, headers = headers)
-    html = etree.HTML(res.text)
-    return html
+    page_html = etree.HTML(res.text)
+    return page_html
 
 
 def get_all_pages(page_cnt):
@@ -199,6 +206,71 @@ def extrac_img_source(page_html_list:list):
     return url_df
     
 
+
+def extrac_img_source_new(page_html_list:list):
+    # 20230821更新 原网址抓取不到了，估计是接口调整了，改网址，页面排版也有变动
+    xpath_img_div = """/html/body/div[@class="container"]/div[@class="item"]"""
+    xpath_img_url_1080p = """div[@class="card progressive"]/div[@class="options"]/a[2]/@href"""
+    xpath_img_url_4k = """div[@class="card progressive"]/div[@class="options"]/a[3]/@href"""
+    xpath_img_title = """div[@class="card progressive"]/div[@class="description"]/h3/text()"""
+    # xpath_img_subtitle = """div/div[1]/div[2]/h3/text()"""
+    xpath_img_date = """div[@class="card progressive"]/div[@class="description"]/p[1]/em/text()"""
+
+    urls = []
+    for page_html in tqdm(page_html_list):
+
+        img_divs = page_html.xpath(xpath_img_div)
+
+        for img_div in img_divs:
+
+            title = img_div.xpath(xpath_img_title)
+            if title:
+                title = title[0].strip()
+                title = re.sub(' (.+)', '', title)
+            else:
+                title = ''
+
+            # subtitle = img_div.xpath(xpath_img_subtitle)
+            # if subtitle:
+            #     subtitle = subtitle[0].strip()
+            # else:
+            #     subtitle = ''
+
+            
+
+            url_1080 = img_div.xpath(xpath_img_url_1080p)
+            if url_1080:
+                url_1080 = url_1080[0].strip()
+            else:
+                url_1080 = ''
+            
+            url_4k = img_div.xpath(xpath_img_url_4k)
+            if url_4k:
+                url_4k = url_4k[0].strip()
+            else:
+                url_4k = ''
+            
+            date = img_div.xpath(xpath_img_date)
+            if date:
+                date = date[0].strip()
+            else:
+                date = ''
+
+            url_one = {
+                'title': title, 
+                # 'subtitle': subtitle,
+                'url_1080': url_1080,
+                'url_4k': url_4k,
+                'date': date
+            }
+            
+            urls.append(url_one)
+
+    url_df = pd.DataFrame(urls)
+
+    return url_df
+
+
 @retry(retry_on_exception=_retry_if_exception,
        wait_random_min=1000,
        wait_random_max=5000,
@@ -221,12 +293,25 @@ def DownloadImg(url, dir):
        stop_max_attempt_number=5)
 def DownloadOneImg(url, path):
     headers = {
-        'use_agent' : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.14; rv:66.0) Gecko/20100101 Firefox/66.0',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
     }
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=headers, stream=True)
 
-    with open(path, 'wb') as f:
-        f.write(r.content)
+    total_size = int(r.headers.get("content-length", 0))
+    # with open(path, 'wb') as f:
+    #     f.write(r.content)
+    output_filename = os.path.basename(path)
+    file_tag = output_filename.split('.')[0]
+    # Create a progress bar
+    progress_bar = tqdm(total=total_size, unit="B", unit_scale=True)
+    progress_bar.set_description(file_tag)
+    # Write the downloaded content to a file
+    with open(path, "wb") as file:
+        for data in r.iter_content(chunk_size=4096):
+            file.write(data)
+            progress_bar.update(len(data))
+    # Close the progress bar
+    progress_bar.close()
 
 
 def DownloadImgs(url_df, dir, type='4k', with_title=False, with_date=False):
@@ -243,6 +328,7 @@ def DownloadImgs(url_df, dir, type='4k', with_title=False, with_date=False):
         tag = 'url_4k'
     
     url_df['file_basename'] = url_df[tag].apply(lambda x: sanitize_filename(os.path.basename(x)))
+    url_df['file_basename'] = url_df['file_basename'].str.replace('&qlt=100', '').str.replace('thid=', '')
     url_df['filename'] = url_df['file_basename']
     if with_title:
         url_df['filename'] = url_df['title'] + '.' + url_df['file_basename']
@@ -281,14 +367,13 @@ if __name__=="__main__":
 
 
     # page_htmls = get_all_pages(1)
-    page_htmls = get_spec_pages([100,
-                                101,
-                                128,
-                                129,
-                                130,
-                                131,
-                                132])
-    url_df = extrac_img_source(page_htmls)
+    pages_to_download = [x + 1 for x in range(5)]
+    # pages_to_download = [118, 128]
+    for page_no in pages_to_download:
+        print(page_no)
+    page_htmls = get_spec_pages(pages_to_download)
+    # url_df = extrac_img_source(page_htmls)
+    url_df = extrac_img_source_new(page_htmls)
 
     url_df = url_df.loc[url_df['url_4k'].str.startswith('http')]
     # for i, row in tqdm(url_df.iterrows(), total = url_df.shape[0]):
