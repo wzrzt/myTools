@@ -31,6 +31,9 @@ def _retry_if_exception(exception):
 
 class BingWallpaperDownloader:
     def __init__(self, resolution='4k', log_dir='.'):
+        """
+        resolution '4k' or '1080'
+        """
         self.resolution = resolution
         self.base_url = 'http://bing.ioliu.cn'
         self.logger = set_logger('WallpaperDownloader', log_dir)
@@ -40,12 +43,13 @@ class BingWallpaperDownloader:
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
         }
 
-    def set_download_dir(self, download_dir=None):
+    def set_download_dir(self, download_dir):
         if os.path.isdir(download_dir):
-            self.download_dir = download_dir
+            pass
         else:
-            print(f"inputed {download_dir} is not a folder, will try to use dir from config.ini or use default dir Wallpapers")
-            self.set_default_dir()
+            os.makedirs(download_dir)
+        self.download_dir = download_dir
+        self.history_date = self.get_downloaded()
     
     def set_default_dir(self, config_filepath='config.ini'):
         try:
@@ -232,4 +236,5 @@ if __name__=="__main__":
     
     downloader = BingWallpaperDownloader()
     # download_dir = downloader.set_default_dir_download_dir('config.ini')
+    # downloader.set_download_dir('output_1080')
     downloader.download_wallpapers(page_cnt=5)
