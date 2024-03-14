@@ -28,6 +28,7 @@ from retrying import retry
 from pathvalidate import sanitize_filename
 from PIL import Image
 from _utils import set_logger
+import datetime
 
 
 def _retry_if_exception(exception):
@@ -72,7 +73,43 @@ class BingWallpaperDownloader:
         # print(f"Download dir set to {output_path}")
         self.logger.info(f"Download dir set to {output_path}")
         return output_path
+
+    def generate_date_list(self, start_date, end_date):
+        """
+        date format must be 'YYYY-MM-DD'
+        start_date: '2021-01-01' 
+        end_date: '2021-12-31'
+        """
+        start_date_time = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        end_date_time = datetime.datetime.strptime(end_date, '%Y-%m-%d')
+        if start_date_time > end_date_time:
+            raise ValueError("start_date must be earlier than end_date")
+        days_diff = (end_date_time - start_date_time).days
+        date_list = []
+        # date_list.append(start_date)
+        for i in range(days_diff + 1):
+            date_i = start_date_time + datetime.timedelta(days=i)
+            date_str = date_i.strftime('%Y-%m-%d')
+            date_list.append(date_str)
         
+        return date_list
+    
+    def recent_date_list(self, recent_days=5):
+        """
+        date format must be 'YYYY-MM-DD'
+        start_date: '2021-01-01' 
+        end_date: '2021-12-31'
+        """
+        # start_date_time = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        end_date_time = datetime.datetime.now()
+        date_list = []
+        for i in range(recent_days):
+            date_i = end_date_time - datetime.timedelta(days=i)
+            date_str = date_i.strftime('%Y-%m-%d')
+            date_list.append(date_str)
+        
+        return date_list
+    
     def _img_file_check(self, path, width=1920, height=1080):
         try:
             im = Image.open(path)
@@ -293,6 +330,8 @@ if __name__ == '__main__':
 
     # 示例用法
     downloader = BingWallpaperDownloader()
-    downloader.set_download_dir('TestOut/bing.wallpaper.pics')
-    downloader.download_wallpapers(date_list=['2024-03-13', '2024-03-12'])
+    # downloader.set_download_dir('TestOut/bing.wallpaper.pics')
+    # date_list = downloader.generate_date_list('2023-11-01', '2023-12-31')
+    date_list = downloader.recent_date_list(recent_days=10)
+    downloader.download_wallpapers(date_list)
 
