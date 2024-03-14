@@ -1,19 +1,26 @@
 
+
 """
-基于 http://bingimg.cn 抓取bing壁纸，有1080，4k两版本可选  
-图片位于 http://bingimg.cn/list1 中，切换页面改 url后的数字即可，最新的在最前面  
-本脚本将抓取前x页壁纸信息，包括标题，副标题，日期，文件名等，拼成pd.DataFrame，再保存至文件夹中  
 
 
-2023-08-21 更新
-1. 由于原网址访问情深，无法抓取到下载链接，现在改成新网址，xpath进行调整
-待改进
-1. 之前下载不到的图获取不到url，无法执行下载，现在是获取得到，但是下载出来的不是图片，需要加多一步检查，如果图片失效，不下载，或者下载后提取错误，文件不要保存，因为文件是直接作为壁纸了，会出问题
-2. 节省硬盘空间，作者提供了随机下载图片的接口，可以考虑每次获取若干张图片作为壁纸，每天或者每周更新即可
+从这个网址进 https://bing.gifposter.com/
 
-2023-11-14 更新
-1. 网站作者选择关闭，只能切换其他网站
+中国区Bing壁纸 https://bing.gifposter.com/cn
+美区Bing壁纸 https://bing.gifposter.com/
+
+中国区Bing壁纸列表页 https://bing.gifposter.com/cn/list/new/desc/classic.html
+美区列表页 https://bing.gifposter.com/list/new/desc/classic.html
+美区列表页第2页 https://bing.gifposter.com/list/new/desc/classic.html?p=2
+
+预览地址 src="https://h2.gifposter.com/bingImages/BryceSnow_1920x1080.jpg_sm"
+下载地址
+UHD https://bing.gifposter.com/bingImages/BeaumontClock_uhd.jpg
+1080 https://bing.gifposter.com/bingImages/BeaumontClock_1920x1080.jpg
+
+
+备选网站 https://bing.wallpaper.pics
 """
+
 
 import os
 import re
@@ -26,6 +33,7 @@ from retrying import retry
 from pathvalidate import sanitize_filename
 from PIL import Image
 from _utils import set_logger
+from dateutil import parser
 
 
 def _retry_if_exception(exception):
@@ -36,9 +44,11 @@ class BingWallpaperDownloader:
     def __init__(self, resolution='4k', log_dir='.'):
         """
         resolution '4k' or '1080'
+        4k   --> _uhd suffix in download url
+        1080 --> _1920x1080 suffix in download url
         """
         self.resolution = resolution
-        self.base_url = 'http://bing.ioliu.cn'
+        self.base_url = 'https://bing.gifposter.com/cn/list/new/desc/classic.html'
         self.logger = set_logger('WallpaperDownloader', log_dir)
         self.download_dir = self.set_default_dir()
         self.history_date = self.get_downloaded()
@@ -105,12 +115,18 @@ class BingWallpaperDownloader:
 
     def _extract_img_source(self, page_html_list):
         # 20230821更新 原网址抓取不到了，估计是接口调整了，改网址，页面排版也有变动
-        xpath_img_div = """/html/body/div[@class="container"]/div[@class="item"]"""
-        xpath_img_url_1080p = """div[@class="card progressive"]/div[@class="options"]/a[2]/@href"""
-        xpath_img_url_4k = """div[@class="card progressive"]/div[@class="options"]/a[3]/@href"""
-        xpath_img_title = """div[@class="card progressive"]/div[@class="description"]/h3/text()"""
+        xpath_img_div = """/html/body/main/section/ul/li"""
+        # xpath_img_url_1080p = """div[@class="card progressive"]/div[@class="options"]/a[2]/@href"""
+        # xpath_img_url_4k = """div[@class="card progressive"]/div[@class="options"]/a[3]/@href"""
+        # xpath_img_title = """div[@class="card progressive"]/div[@class="description"]/h3/text()"""
         # xpath_img_subtitle = """div/div[1]/div[2]/h3/text()"""
-        xpath_img_date = """div[@class="card progressive"]/div[@class="description"]/p[1]/em/text()"""
+        # xpath_img_date = """div[@class="card progressive"]/div[@class="description"]/p[1]/em/text()"""
+
+        # xpath_list = "/html/body/main/section/ul/li"
+        xpath_img_url_thumb = "a/img/@src"
+        xpath_img_title = "div/span/text()"  # 标题需要用路径修复函数修复一下，避免特殊符号导致失败
+        xpath_img_date = "div/time/text()"
+
         urls = []
         for page_html in tqdm(page_html_list):
             img_divs = page_html.xpath(xpath_img_div)
@@ -124,33 +140,37 @@ class BingWallpaperDownloader:
                 else:
                     title = ''
 
-                url_1080 = img_div.xpath(xpath_img_url_1080p)
-                if url_1080:
-                    url_1080 = url_1080[0].strip()
-                else:
-                    url_1080 = ''
-                
-                url_4k = img_div.xpath(xpath_img_url_4k)
-                if url_4k:
-                    url_4k = url_4k[0].strip()
-                else:
-                    url_4k = ''
-                
                 date = img_div.xpath(xpath_img_date)
                 if date:
-                    date = date[0].strip()
+                    date_string = date[0].strip()
+                    date_parsed = parser.parse(date_string)
+                    date = date_parsed.strftime("%Y-%m-%d")
                 else:
                     date = ''
 
-                url_one = {
-                    'title': title, 
-                    # 'subtitle': subtitle,
-                    'url_1080': url_1080,
-                    'url_4k': url_4k,
-                    'date': date
-                }
+                url_thumb = img_div.xpath(xpath_img_url_thumb)
+                if url_thumb:
+                    url_thumb = url_thumb[0].strip()
+                else:
+                    url_thumb = ''
                 
-                urls.append(url_one)
+                if url_thumb:
+                    url_1080 = url_thumb.replace("https://h2", "https://bing").replace("1920x1080.jpg_sm", "1920x1080.jpg")
+                    url_4k = url_thumb.replace("https://h2", "https://bing").replace("1920x1080.jpg_sm", "uhd.jpg")
+                    title_en = url_thumb.replace("https://h2.gifposter.com/bingImages/", "").replace("_1920x1080.jpg_sm", "")
+                
+                    url_one = {
+                        'title': title,
+                        'title_en': title_en,
+                        'url_1080': url_1080,
+                        'url_4k': url_4k,
+                        'date': date
+                    }
+                    
+                    urls.append(url_one)
+
+                else:
+                    pass
 
         url_df = pd.DataFrame(urls)
 
@@ -179,24 +199,21 @@ class BingWallpaperDownloader:
             # Close the progress bar
             progress_bar.close()
 
-    def download_wallpapers(self, page_cnt=5, with_title=True, with_date=True):
+    def download_wallpapers(self, page_cnt=5):
         """
         default download recent 5 pages
         """
         page_html_list = self._get_all_pages(page_cnt)
         url_df = self._extract_img_source(page_html_list)
         url_df = url_df.loc[url_df[f'url_{self.resolution}'].str.startswith('http')]
-        url_df['file_basename'] = url_df[f'url_{self.resolution}'].apply(lambda x: sanitize_filename(os.path.basename(x)))
-        url_df['file_basename'] = url_df['file_basename'].str.replace('&qlt=100', '').str.replace('thid=', '')
-        url_df['filename'] = url_df['file_basename']
-        url_df['filename'] = 'date_' + url_df['date'].str.replace('-', '') + '.' + url_df['filename']
+        # url_df['file_basename'] = url_df[f'url_{self.resolution}'].apply(lambda x: sanitize_filename(os.path.basename(x)))
+        # url_df['file_basename'] = url_df['file_basename'].str.replace('&qlt=100', '').str.replace('thid=', '')
+        # url_df['filename'] = url_df['file_basename']
+        # url_df['filename'] = 'date_' + url_df['date'].str.replace('-', '') + '.' + url_df['filename']
+        # url_df['filename'] = url_df['filename'].apply(lambda x: sanitize_filename(x))
+        url_df['filename'] = url_df[f'url_{self.resolution}'].apply(lambda x: os.path.basename(x))
+        url_df['filename'] = 'date_' + url_df['date'].str.replace('-', '') + '.' + url_df['title'] + '.OHR.' + url_df['filename'].str.replace('uhd', 'UHD')
         url_df['filename'] = url_df['filename'].apply(lambda x: sanitize_filename(x))
-        
-        if with_title:
-            url_df['filename'] = url_df['title'] + '.' + url_df['file_basename']
-        if with_date:
-            url_df['filename'] = 'date_' + url_df['date'].str.replace('-', '') + '.' + url_df['filename']
-        
         # dates_downloaded = self.get_downloaded()
         if self.history_date:
             url_df = url_df.loc[~url_df['date'].isin(self.history_date)]
@@ -236,10 +253,10 @@ class BingWallpaperDownloader:
         return dates
 
 
-
 if __name__=="__main__":
-    
+
+    # 示例用法
     downloader = BingWallpaperDownloader()
-    # download_dir = downloader.set_default_dir_download_dir('config.ini')
-    # downloader.set_download_dir('output_1080')
+    # downloader.set_download_dir('TestOut/bing.gifposter.com')
     downloader.download_wallpapers(page_cnt=5)
+
