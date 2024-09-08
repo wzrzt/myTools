@@ -10,7 +10,7 @@ app = Flask(__name__)
 IMAGE_FOLDER = '/Users/wzr/Tools/WallPapers'
 THUMBNAIL_FOLDER = '/Users/wzr/temp/temp_thumbnail'
 IMAGES_PER_PAGE = 12
-IMAGES_PER_ROW = 2
+IMAGES_PER_ROW = 3
 
 
 def count_images():
@@ -101,4 +101,5 @@ def thumbnail(filename):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+    # app.run(host='0.0.0.0', port=5001)
+    app.run(port=5001)

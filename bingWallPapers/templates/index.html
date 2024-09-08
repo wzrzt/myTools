@@ -34,6 +34,14 @@
             margin-right: 10px;
             margin-left: 10px;
         }
+        .item {
+            display: inline-block;
+            width: 33.33%;
+            height: auto;
+            position: relative;
+            border: none
+        }
+        
     </style>
 </head>
 <body>
@@ -44,7 +52,7 @@
         {% for image_file, thumbnail_file in row %}
         <div class="thumbnail-row">
             <a href="/images/{{ image_file }}" download>
-                <img src="/thumbnails/{{ thumbnail_file }}" alt="{{ image_file }}" width="640" height="360">
+                <img class="item" src="/thumbnails/{{ thumbnail_file }}" alt="{{ image_file }}" width="640" height="360">
             </a>
         </div>
         {% endfor %}
